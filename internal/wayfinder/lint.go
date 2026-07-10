@@ -55,7 +55,7 @@ func Lint(e *Effort, opt Options) []Diagnostic {
 		seen[t.Num] = t
 
 		if t.Legacy {
-			add(Warn, t.Path, 0, "loose header block; migrate Type/Status/Blocked by into YAML frontmatter")
+			add(Warn, t.Path, 0, "loose header block; migrate Type/Blocked by into YAML frontmatter")
 		}
 		if t.Title == "" {
 			add(Error, t.Path, 0, "no H1 title — the skill refers to tickets by name")
@@ -63,21 +63,35 @@ func Lint(e *Effort, opt Options) []Diagnostic {
 		if !validTypes[t.Type] {
 			add(Error, t.Path, 0, "type %q is not research|prototype|grilling|task", t.Type)
 		}
-		if !validStatuses[t.Status] {
-			add(Error, t.Path, 0, "status %q is not open|claimed|resolved|out_of_scope", t.Status)
-			continue
+
+		// A stored status is a second copy of a fact the body already carries.
+		// Report the disagreement where there is one; otherwise say to drop it.
+		if t.StoredStatus != "" {
+			switch {
+			case !validStatuses[t.StoredStatus]:
+				add(Error, t.Path, 0, "stored status %q is not open|claimed|resolved|out_of_scope", t.StoredStatus)
+			case t.StoredStatus != t.Status:
+				add(Error, t.Path, 0, "stored status %q disagrees with the derived status %q — delete the field and let the body speak", t.StoredStatus, t.Status)
+			default:
+				add(Warn, t.Path, 0, "`status:` is derived from the body, not stored — delete the field")
+			}
 		}
 
-		if t.Status.Closed() && !t.HasAnswer {
-			add(Error, t.Path, 0, "status %s but no `## Answer` section", t.Status)
+		if t.AnswerHeading && t.RuledOutHeading {
+			add(Error, t.Path, 0, "has both `## Answer` and `## Ruled out` — a ticket is a step on the route or a boundary of it, never both")
 		}
-		if !t.Status.Closed() && t.HasAnswer {
-			add(Warn, t.Path, 0, "has an `## Answer` but status is %s", t.Status)
+		if t.EmptyClosing() {
+			add(Error, t.Path, 0, "a closing heading with nothing under it — the answer *is* the resolution, so a bare heading resolves nothing; a session likely died mid-write")
 		}
 
-		if t.Status == StatusClaimed {
+		switch {
+		case t.Status.Closed():
+			if t.ClaimedBy != "" || t.ClaimedAt != "" {
+				add(Warn, t.Path, 0, "closed but still carries a claim — inert, but clear claimed_by and claimed_at")
+			}
+		case t.ClaimedBy != "" || t.ClaimedAt != "":
 			if t.ClaimedBy == "" {
-				add(Warn, t.Path, 0, "claimed with no claimed_by — a dead session is indistinguishable from live work")
+				add(Warn, t.Path, 0, "claimed_at with no claimed_by — a dead session is indistinguishable from live work")
 			}
 			if t.ClaimedAt == "" {
 				add(Warn, t.Path, 0, "claimed with no claimed_at — cannot detect a stale claim")

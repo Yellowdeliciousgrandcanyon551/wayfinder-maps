@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// Status is derived from what a ticket already says — never read from a
+// `status:` field, which would be a second copy free to go stale. See Derive.
 type Status string
 
 const (
@@ -43,8 +45,37 @@ type Ticket struct {
 	ClaimedAt    string
 	Assets       []string
 
-	HasAnswer bool
-	Legacy    bool // loose "Type:" header rather than YAML frontmatter
+	// HasAnswer and HasRuledOut mean a closing section with prose under it. A
+	// bare heading is not an answer, so the *Heading fields track it separately:
+	// a session that died just after typing one must not read as finished.
+	HasAnswer       bool
+	HasRuledOut     bool
+	AnswerHeading   bool
+	RuledOutHeading bool
+
+	Legacy       bool   // loose "Type:" header rather than YAML frontmatter
+	StoredStatus Status // a deprecated `status:` field, if the file still carries one
+}
+
+// EmptyClosing reports a closing heading with nothing written under it.
+func (t *Ticket) EmptyClosing() bool {
+	return (t.AnswerHeading && !t.HasAnswer) || (t.RuledOutHeading && !t.HasRuledOut)
+}
+
+// Derive sets Status from the ticket's own contents. Closure is read first, so
+// a claim left behind on a closed ticket is inert litter rather than a broken
+// invariant: it can never hold the frontier.
+func (t *Ticket) Derive() {
+	switch {
+	case t.HasAnswer:
+		t.Status = StatusResolved
+	case t.HasRuledOut:
+		t.Status = StatusOutOfScope
+	case t.ClaimedBy != "":
+		t.Status = StatusClaimed
+	default:
+		t.Status = StatusOpen
+	}
 }
 
 type FogPatch struct {
@@ -117,8 +148,6 @@ func (e *Effort) Count(s Status) int {
 }
 
 var (
-	reH1        = regexp.MustCompile(`(?m)^# (.+?)\s*$`)
-	reAnswer    = regexp.MustCompile(`(?m)^## Answer\s*$`)
 	reLegacyKey = regexp.MustCompile(`(?m)^(Type|Status|Blocked by):[ \t]*(.*)$`)
 	reFilename  = regexp.MustCompile(`^(\d+)-(.+)\.md$`)
 	reDecision  = regexp.MustCompile(`\(\./tickets/(\d+)-[^)]*\)`)
@@ -126,27 +155,119 @@ var (
 	reClearsRaw = regexp.MustCompile(`clears-with:\s*(\d+)`)
 )
 
-// parseFrontmatter splits a leading `---` delimited block into key/value pairs.
-// Values are raw strings; list values keep their brackets for splitList.
-func parseFrontmatter(src string) (map[string]string, string, bool) {
-	if !strings.HasPrefix(src, "---\n") {
-		return nil, src, false
-	}
-	end := strings.Index(src[4:], "\n---")
-	if end < 0 {
-		return nil, src, false
-	}
-	block := src[4 : 4+end]
-	rest := src[4+end:]
-	if i := strings.Index(rest, "\n"); i >= 0 {
-		rest = rest[i+1:]
-		if j := strings.Index(rest, "\n"); j >= 0 {
-			rest = rest[j+1:]
+func blank(s string) bool { return strings.TrimSpace(s) == "" }
+
+// fenceRun returns the delimiter a line opens or closes a code fence with —
+// a run of three or more backticks or tildes — or "" if it is not a fence.
+func fenceRun(line string) string {
+	t := strings.TrimLeft(line, " \t")
+	for _, c := range []byte{'`', '~'} {
+		n := 0
+		for n < len(t) && t[n] == c {
+			n++
 		}
+		if n >= 3 {
+			return t[:n]
+		}
+	}
+	return ""
+}
+
+// splitScan returns the source's lines, plus a parallel slice in which every
+// line inside a fenced code block — and the fence delimiters themselves — is
+// blank.
+//
+// Structure is detected on the blanked copy and content is read from the
+// original at the same index. A ticket whose Question quotes the ticket format
+// must not resolve itself by containing the string "## Answer".
+func splitScan(src string) (raw, scan []string) {
+	raw = strings.Split(src, "\n")
+	scan = make([]string, len(raw))
+	open := ""
+	for i, l := range raw {
+		if open == "" {
+			if d := fenceRun(l); d != "" {
+				open = d
+				continue
+			}
+			scan[i] = l
+			continue
+		}
+		if d := fenceRun(l); d != "" && d[0] == open[0] && len(d) >= len(open) {
+			open = ""
+		}
+	}
+	return raw, scan
+}
+
+// sectionRange locates a `## <name>` heading in scan and returns the half-open
+// line range of its body, up to the next `## ` heading. ok is false when absent.
+func sectionRange(scan []string, name string) (start, end int, ok bool) {
+	head := -1
+	for i, l := range scan {
+		if strings.TrimSpace(l) == "## "+name {
+			head = i
+			break
+		}
+	}
+	if head < 0 {
+		return 0, 0, false
+	}
+	start = head + 1
+	for i := start; i < len(scan); i++ {
+		if strings.HasPrefix(scan[i], "## ") {
+			return start, i, true
+		}
+	}
+	return start, len(scan), true
+}
+
+// sectionOf returns the raw body under `## name`. The body is taken from the
+// original lines, so a section whose entire content is a code fence still
+// counts as written.
+func sectionOf(raw, scan []string, name string) string {
+	start, end, ok := sectionRange(scan, name)
+	if !ok {
+		return ""
+	}
+	return strings.Join(raw[start:end], "\n")
+}
+
+func hasHeading(scan []string, name string) bool {
+	_, _, ok := sectionRange(scan, name)
+	return ok
+}
+
+// firstH1 returns the text of the first `# ` heading outside any code fence.
+func firstH1(raw, scan []string, from int) string {
+	for i := from; i < len(scan); i++ {
+		if strings.HasPrefix(scan[i], "# ") {
+			return strings.TrimSpace(strings.TrimPrefix(raw[i], "# "))
+		}
+	}
+	return ""
+}
+
+// parseFrontmatter splits a leading `---` delimited block into key/value pairs.
+// Values are raw strings; list values keep their brackets for splitList. The
+// second return is the line index at which the body begins.
+func parseFrontmatter(raw []string) (map[string]string, int, bool) {
+	if len(raw) == 0 || strings.TrimSpace(raw[0]) != "---" {
+		return nil, 0, false
+	}
+	end := -1
+	for i := 1; i < len(raw); i++ {
+		if strings.TrimSpace(raw[i]) == "---" {
+			end = i
+			break
+		}
+	}
+	if end < 0 {
+		return nil, 0, false
 	}
 
 	kv := map[string]string{}
-	for _, line := range strings.Split(block, "\n") {
+	for _, line := range raw[1:end] {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -162,7 +283,7 @@ func parseFrontmatter(src string) (map[string]string, string, bool) {
 		}
 		kv[key] = val
 	}
-	return kv, rest, true
+	return kv, end + 1, true
 }
 
 func splitList(v string) []string {
@@ -202,13 +323,14 @@ func ParseTicket(path, filename, src string) (*Ticket, error) {
 	num, _ := strconv.Atoi(strings.TrimLeft(m[1], "0"))
 
 	t := &Ticket{Num: num, Slug: m[2], Path: path}
+	raw, scan := splitScan(src)
 
-	kv, body, ok := parseFrontmatter(src)
+	kv, bodyAt, ok := parseFrontmatter(raw)
 	if !ok {
 		kv = map[string]string{}
-		body = src
+		bodyAt = 0
 		t.Legacy = true
-		for _, km := range reLegacyKey.FindAllStringSubmatch(src, -1) {
+		for _, km := range reLegacyKey.FindAllStringSubmatch(strings.Join(scan, "\n"), -1) {
 			key := strings.ToLower(km[1])
 			if key == "blocked by" {
 				key = "blocked_by"
@@ -217,18 +339,21 @@ func ParseTicket(path, filename, src string) (*Ticket, error) {
 		}
 	}
 
-	if h := reH1.FindStringSubmatch(body); h != nil {
-		t.Title = h[1]
-	} else if h := reH1.FindStringSubmatch(src); h != nil {
-		t.Title = h[1]
-	}
+	t.Title = firstH1(raw, scan, bodyAt)
 
 	t.Type = Type(strings.ToLower(kv["type"]))
-	t.Status = Status(strings.ToLower(strings.ReplaceAll(kv["status"], " ", "_")))
 	t.ClaimedBy = kv["claimed_by"]
 	t.ClaimedAt = kv["claimed_at"]
 	t.Assets = splitList(kv["assets"])
-	t.HasAnswer = reAnswer.MatchString(src)
+
+	t.AnswerHeading = hasHeading(scan, "Answer")
+	t.RuledOutHeading = hasHeading(scan, "Ruled out")
+	t.HasAnswer = t.AnswerHeading && !blank(sectionOf(raw, scan, "Answer"))
+	t.HasRuledOut = t.RuledOutHeading && !blank(sectionOf(raw, scan, "Ruled out"))
+	if s := kv["status"]; s != "" {
+		t.StoredStatus = Status(strings.ToLower(strings.ReplaceAll(s, " ", "_")))
+	}
+	t.Derive()
 
 	var err error
 	if t.BlockedBy, err = splitNums(kv["blocked_by"]); err != nil {
@@ -240,56 +365,35 @@ func ParseTicket(path, filename, src string) (*Ticket, error) {
 	return t, nil
 }
 
-// section returns the body of a `## <name>` heading, up to the next `## `.
-func section(src, name string) (string, int) {
-	lines := strings.Split(src, "\n")
-	start := -1
-	for i, l := range lines {
-		if strings.TrimSpace(l) == "## "+name {
-			start = i + 1
-			break
-		}
-	}
-	if start < 0 {
-		return "", 0
-	}
-	for i := start; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "## ") {
-			return strings.Join(lines[start:i], "\n"), start + 1
-		}
-	}
-	return strings.Join(lines[start:], "\n"), start + 1
-}
-
-// bullets splits a section into top-level `- ` bullets with their line offsets,
-// folding indented continuation lines into the bullet they belong to.
-func bullets(body string, offset int) []struct {
+type bullet struct {
 	Text string
 	Line int
-} {
-	var out []struct {
-		Text string
-		Line int
-	}
-	for i, l := range strings.Split(body, "\n") {
-		if strings.HasPrefix(l, "- ") {
-			out = append(out, struct {
-				Text string
-				Line int
-			}{l, offset + i})
+}
+
+// bullets splits a section into top-level `- ` bullets with their 1-based line
+// numbers, folding indented continuation lines into the bullet they belong to.
+// A bullet inside a code fence is not a bullet.
+func bullets(raw, scan []string, start, end int) []bullet {
+	var out []bullet
+	for i := start; i < end; i++ {
+		if strings.HasPrefix(scan[i], "- ") {
+			out = append(out, bullet{raw[i], i + 1})
 			continue
 		}
-		if len(out) > 0 && strings.TrimSpace(l) != "" && strings.HasPrefix(l, " ") {
-			out[len(out)-1].Text += "\n" + l
+		if len(out) > 0 && !blank(scan[i]) && strings.HasPrefix(scan[i], " ") {
+			out[len(out)-1].Text += "\n" + raw[i]
 		}
 	}
 	return out
 }
 
-func decisionsIn(src, name string) []Decision {
-	body, off := section(src, name)
+func decisionsIn(raw, scan []string, name string) []Decision {
+	start, end, ok := sectionRange(scan, name)
+	if !ok {
+		return nil
+	}
 	var out []Decision
-	for _, b := range bullets(body, off) {
+	for _, b := range bullets(raw, scan, start, end) {
 		for _, m := range reDecision.FindAllStringSubmatch(b.Text, -1) {
 			n, _ := strconv.Atoi(strings.TrimLeft(m[1], "0"))
 			out = append(out, Decision{TicketNum: n, Line: b.Line})
@@ -299,27 +403,25 @@ func decisionsIn(src, name string) []Decision {
 }
 
 func ParseMap(path, src string) *Map {
+	raw, scan := splitScan(src)
 	m := &Map{Path: path}
-	if h := reH1.FindStringSubmatch(src); h != nil {
-		m.Name = h[1]
-	}
-	dest, _ := section(src, "Destination")
-	m.Destination = strings.TrimSpace(dest)
+	m.Name = firstH1(raw, scan, 0)
+	m.Destination = strings.TrimSpace(sectionOf(raw, scan, "Destination"))
 
-	m.Decisions = decisionsIn(src, "Decisions so far")
-	m.OutOfScope = decisionsIn(src, "Out of scope")
+	m.Decisions = decisionsIn(raw, scan, "Decisions so far")
+	m.OutOfScope = decisionsIn(raw, scan, "Out of scope")
 
-	fogBody, off := section(src, "Not yet specified")
-	for _, b := range bullets(fogBody, off) {
-		p := FogPatch{Line: b.Line}
-		if tm := reFogTitle.FindStringSubmatch(b.Text); tm != nil {
-			p.Title = strings.TrimRight(tm[1], ".")
+	if start, end, ok := sectionRange(scan, "Not yet specified"); ok {
+		for _, b := range bullets(raw, scan, start, end) {
+			p := FogPatch{Line: b.Line}
+			if tm := reFogTitle.FindStringSubmatch(b.Text); tm != nil {
+				p.Title = strings.TrimRight(tm[1], ".")
+			}
+			if cm := reClearsRaw.FindStringSubmatch(b.Text); cm != nil {
+				p.ClearsWith, _ = strconv.Atoi(strings.TrimLeft(cm[1], "0"))
+			}
+			m.Fog = append(m.Fog, p)
 		}
-		if cm := reClearsRaw.FindStringSubmatch(b.Text); cm != nil {
-			p.ClearsWith, _ = strconv.Atoi(strings.TrimLeft(cm[1], "0"))
-		}
-		out := p
-		m.Fog = append(m.Fog, out)
 	}
 	return m
 }

@@ -9,7 +9,6 @@ import (
 func TestParseTicketFrontmatter(t *testing.T) {
 	src := `---
 type: grilling
-status: claimed
 blocked_by: [02, 03]
 undermined_by: [08]
 claimed_by: session-a
@@ -33,7 +32,10 @@ Body.
 		t.Errorf("title = %q", tk.Title)
 	}
 	if tk.Type != TypeGrilling || tk.Status != StatusClaimed {
-		t.Errorf("type/status = %q/%q", tk.Type, tk.Status)
+		t.Errorf("type/status = %q/%q — status derives from claimed_by", tk.Type, tk.Status)
+	}
+	if tk.StoredStatus != "" {
+		t.Errorf("stored status = %q, want none in the current format", tk.StoredStatus)
 	}
 	if len(tk.BlockedBy) != 2 || tk.BlockedBy[0] != 2 || tk.BlockedBy[1] != 3 {
 		t.Errorf("blocked_by = %v", tk.BlockedBy)
@@ -78,6 +80,9 @@ A.
 	if tk.Type != TypePrototype || tk.Status != StatusResolved {
 		t.Errorf("type/status = %q/%q", tk.Type, tk.Status)
 	}
+	if tk.StoredStatus != StatusResolved {
+		t.Errorf("stored status = %q, want the legacy header captured", tk.StoredStatus)
+	}
 	if len(tk.BlockedBy) != 0 {
 		t.Errorf("blocked_by none = %v", tk.BlockedBy)
 	}
@@ -86,6 +91,61 @@ A.
 	}
 	if tk.Title != "Muted empty-day card design" {
 		t.Errorf("title = %q", tk.Title)
+	}
+}
+
+// A ticket that quotes the ticket format must not resolve itself. This is the
+// most likely ticket to exist in a repo whose maps are about ticket formats.
+func TestFencedHeadingsAreNotStructure(t *testing.T) {
+	src := "---\ntype: grilling\nblocked_by: []\n---\n\n" +
+		"# Should tickets keep a status field\n\n" +
+		"## Question\n\nA resolved ticket looks like:\n\n" +
+		"```markdown\n# Some other ticket\n\n## Answer\nThe decision was X.\n\n## Ruled out\nNope.\n```\n\n" +
+		"Should we keep that shape?\n"
+
+	tk, err := ParseTicket("p", "01-discuss-format.md", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk.Status != StatusOpen {
+		t.Errorf("status = %q, want open — a fenced `## Answer` resolved the ticket", tk.Status)
+	}
+	if tk.AnswerHeading || tk.RuledOutHeading {
+		t.Error("a closing heading inside a code fence was seen as structure")
+	}
+	if tk.Title != "Should tickets keep a status field" {
+		t.Errorf("title = %q — a fenced H1 hijacked it", tk.Title)
+	}
+}
+
+// An answer whose whole body is a code fence is still an answer.
+func TestFencedAnswerBodyStillResolves(t *testing.T) {
+	src := "---\ntype: prototype\nblocked_by: []\n---\n\n# Approved markup\n\n" +
+		"## Question\nWhich shape?\n\n## Answer\n\n```html\n<div class=\"rail\"></div>\n```\n"
+
+	tk, err := ParseTicket("p", "02-approved-markup.md", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk.Status != StatusResolved {
+		t.Errorf("status = %q, want resolved — the answer is a code block, not nothing", tk.Status)
+	}
+	if tk.EmptyClosing() {
+		t.Error("a fenced answer body was mistaken for an empty heading")
+	}
+}
+
+func TestFencedBulletsAreNotFog(t *testing.T) {
+	src := "# M\n\n## Destination\nD.\n\n## Not yet specified\n\n" +
+		"- **Real patch.** prose. <clears-with: 04>\n\n" +
+		"```markdown\n- **Quoted patch.** an example, not fog. <clears-with: 09>\n```\n"
+
+	m := ParseMap("map.md", src)
+	if len(m.Fog) != 1 {
+		t.Fatalf("fog = %d patches, want 1 — a fenced bullet became fog: %+v", len(m.Fog), m.Fog)
+	}
+	if m.Fog[0].Title != "Real patch" || m.Fog[0].ClearsWith != 4 {
+		t.Errorf("fog[0] = %+v", m.Fog[0])
 	}
 }
 
@@ -145,13 +205,55 @@ func effort(mapSrc string, ts ...*Ticket) *Effort {
 	return &Effort{Dir: "d", Name: "e", Map: ParseMap("map.md", mapSrc), Tickets: ts}
 }
 
+// tk builds a ticket that *earns* the status asked for, rather than asserting
+// it: status is derived, so the fixture has to say what a real ticket would.
 func tk(num int, status Status, blocked ...int) *Ticket {
 	t := &Ticket{
 		Num: num, Path: "t.md", Title: "T" + string(rune('0'+num)),
-		Type: TypeGrilling, Status: status, BlockedBy: blocked,
+		Type: TypeGrilling, BlockedBy: blocked,
 	}
-	t.HasAnswer = status.Closed()
+	switch status {
+	case StatusResolved:
+		t.HasAnswer, t.AnswerHeading = true, true
+	case StatusOutOfScope:
+		t.HasRuledOut, t.RuledOutHeading = true, true
+	case StatusClaimed:
+		t.ClaimedBy = "session-a"
+		t.ClaimedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	t.Derive()
+	if t.Status != status {
+		panic("fixture derives " + string(t.Status) + ", not " + string(status))
+	}
 	return t
+}
+
+func TestDeriveStatus(t *testing.T) {
+	tests := []struct {
+		name string
+		mut  func(*Ticket)
+		want Status
+	}{
+		{"bare ticket is open", func(*Ticket) {}, StatusOpen},
+		{"claimed_by claims it", func(t *Ticket) { t.ClaimedBy = "s" }, StatusClaimed},
+		{"an Answer resolves it", func(t *Ticket) { t.HasAnswer = true }, StatusResolved},
+		{"a Ruled out closes it", func(t *Ticket) { t.HasRuledOut = true }, StatusOutOfScope},
+		{
+			"a claim left on a resolved ticket is inert",
+			func(t *Ticket) { t.HasAnswer = true; t.ClaimedBy = "s" },
+			StatusResolved,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tk := &Ticket{Num: 1}
+			tc.mut(tk)
+			tk.Derive()
+			if tk.Status != tc.want {
+				t.Errorf("derived %q, want %q", tk.Status, tc.want)
+			}
+		})
+	}
 }
 
 const okMap = "# M\n\n## Destination\nD.\n\n## Decisions so far\n\n## Not yet specified\n\n## Out of scope\n"
@@ -192,13 +294,33 @@ func TestLintCatchesDrift(t *testing.T) {
 			"absent from the map's Decisions-so-far",
 		},
 		{
-			"resolved without answer",
+			"answer and ruled out at once",
 			func() *Effort {
 				t1 := tk(1, StatusResolved)
-				t1.HasAnswer = false
+				t1.HasRuledOut, t1.RuledOutHeading = true, true
+				t1.Derive()
 				return effort("# M\n\n## Destination\nD.\n\n## Decisions so far\n\n- [T](./tickets/01-a.md) — g.\n", t1)
 			}(),
-			"no `## Answer` section",
+			"never both",
+		},
+		{
+			"a bare Answer heading with nothing under it",
+			func() *Effort {
+				t1 := tk(1, StatusOpen)
+				t1.AnswerHeading = true // heading typed, prose never written
+				t1.Derive()
+				return effort(okMap, t1)
+			}(),
+			"a session likely died mid-write",
+		},
+		{
+			"a claim left behind on a closed ticket",
+			func() *Effort {
+				t1 := tk(1, StatusResolved)
+				t1.ClaimedBy = "session-a"
+				return effort("# M\n\n## Destination\nD.\n\n## Decisions so far\n\n- [T](./tickets/01-a.md) — g.\n", t1)
+			}(),
+			"still carries a claim",
 		},
 		{
 			"blocked_by a ticket that does not exist",
@@ -264,13 +386,35 @@ func TestLintCatchesDrift(t *testing.T) {
 			"no Destination",
 		},
 		{
-			"bad status",
-			effort(okMap, &Ticket{Num: 1, Path: "t.md", Title: "T", Type: TypeGrilling, Status: "done"}),
-			`status "done" is not`,
+			"a stored status that is not a status at all",
+			func() *Effort {
+				t1 := tk(1, StatusOpen)
+				t1.StoredStatus = "done"
+				return effort(okMap, t1)
+			}(),
+			`stored status "done" is not`,
+		},
+		{
+			"a stored status disagreeing with the body",
+			func() *Effort {
+				t1 := tk(1, StatusOpen) // no `## Answer`
+				t1.StoredStatus = StatusResolved
+				return effort(okMap, t1)
+			}(),
+			"disagrees with the derived status",
+		},
+		{
+			"a stored status that merely duplicates the body",
+			func() *Effort {
+				t1 := tk(1, StatusOpen)
+				t1.StoredStatus = StatusOpen
+				return effort(okMap, t1)
+			}(),
+			"derived from the body, not stored",
 		},
 		{
 			"bad type",
-			effort(okMap, &Ticket{Num: 1, Path: "t.md", Title: "T", Type: "chore", Status: StatusOpen}),
+			effort(okMap, &Ticket{Num: 1, Path: "t.md", Title: "T", Type: "chore"}),
 			`type "chore" is not`,
 		},
 	}
