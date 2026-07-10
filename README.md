@@ -23,8 +23,14 @@ Blocked:
   06  Contain the day-card chrome drift               waits on 01, 04
   07  The infinite-scroll island's contract           waits on 01, 04
 
-Fog: 7 patches, 0 anchored to a ticket
+Undermined — resolved on a premise that later changed:
+  02  Window size and how older days load             broken by 08
+
+Fog: 7 patches, 2 anchored to a ticket
 ```
+
+(Illustrative. It is a snapshot of one map at one moment — do not trust it as that
+map's current state, which is the whole point of the tool.)
 
 ## Why
 
