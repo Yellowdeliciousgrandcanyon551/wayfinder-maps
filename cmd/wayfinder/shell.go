@@ -18,23 +18,31 @@ const shellHTML = `<!doctype html>
     font:14px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;color:#e6e9ef}
   #sky{position:fixed;inset:0;display:block;cursor:grab}
   #sky.drag{cursor:grabbing}
-  #hud{position:fixed;top:16px;left:16px;max-width:340px;z-index:5;
-    background:rgba(14,18,26,.72);border:1px solid #262b36;border-radius:12px;
-    padding:14px 16px;backdrop-filter:blur(8px)}
-  #hud h1{font-size:15px;margin:0 0 8px;line-height:1.3}
-  #hud .counts{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-  #hud .c{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #262b36;color:#8b93a3}
+  /* HUD: a flat full-width bar along the bottom, out of the constellation's way.
+     Slides down and fades when a detail panel opens so the reader sees only the map. */
+  #hud{position:fixed;left:0;right:0;bottom:0;z-index:5;
+    display:flex;align-items:center;gap:20px;padding:11px 22px;
+    background:linear-gradient(0deg,rgba(7,10,16,.94),rgba(11,14,21,.55));
+    border-top:1px solid #1b212e;backdrop-filter:blur(10px);
+    transition:transform .24s cubic-bezier(.2,.7,.2,1),opacity .24s}
+  body.panelopen #hud{transform:translateY(105%);opacity:0;pointer-events:none}
+  #hud .htitle{min-width:110px;flex:0 1 auto;max-width:34%}
+  #hud h1{font-size:14px;font-weight:600;margin:0;line-height:1.25;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #hud .dest{font-size:11px;color:#8b93a3;line-height:1.35;margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #hud .spacer{flex:1 1 auto}
+  #hud .counts{display:flex;gap:6px;flex-wrap:nowrap}
+  #hud .c{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #262b36;color:#8b93a3;white-space:nowrap}
   .c.resolved{color:#b9c9e0;border-color:#42506a}
   .c.claimed{color:#e0a44b;border-color:#7a5a2a}
   .c.frontier{color:#ffd873;border-color:#8a6a20}
   .c.blocked{color:#c07a7a;border-color:#6a3b3b}
   .c.oos{color:#8a8496;border-color:#4a4550}
-  #hud .bar{height:6px;background:#20242e;border-radius:999px;overflow:hidden;margin-bottom:10px}
+  #hud .bar{width:150px;flex:0 0 auto;height:6px;background:#20242e;border-radius:999px;overflow:hidden}
   #hud .bar>span{display:block;height:100%;background:linear-gradient(90deg,#6d86ad,#b9c9e0)}
-  #hud .dest{font-size:12px;color:#8b93a3;line-height:1.45;
-    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  #hud .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:#8b93a3}
-  #hud .legend b{font-weight:400}
+  #hud .legend{display:flex;gap:12px;flex-wrap:nowrap;font-size:11px;color:#8b93a3}
+  #hud .legend b{font-weight:400;white-space:nowrap}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
   #panel{position:fixed;top:0;right:0;height:100%;width:min(420px,86vw);z-index:6;
     background:rgba(12,15,21,.94);border-left:1px solid #262b36;backdrop-filter:blur(10px);
@@ -46,7 +54,11 @@ const shellHTML = `<!doctype html>
   #panel h2{font-size:17px;margin:2px 0 10px;padding-right:24px}
   #panel h2 .num{color:#8b93a3;font-variant-numeric:tabular-nums;font-weight:700;margin-right:6px}
   #panel .meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-  #panel .md{flex:1;overflow:auto;border-top:1px solid #262b36;padding-top:14px;font-size:13px;line-height:1.65;color:#cfd4de}
+  /* Extend the scroll area to the panel's right edge (the viewport edge) so the
+     scrollbar rides the far edge; re-add the 22px inset as inner padding so text
+     keeps its margin from the bar. */
+  #panel .md{flex:1;overflow:auto;border-top:1px solid #262b36;padding-top:14px;
+    margin-right:-22px;padding-right:22px;font-size:13px;line-height:1.65;color:#cfd4de}
   #panel .md>*:first-child{margin-top:0}
   #panel .md h1,#panel .md h2,#panel .md h3,#panel .md h4{color:#e6e9ef;line-height:1.3;margin:16px 0 8px}
   #panel .md h1{font-size:16px}
@@ -66,7 +78,7 @@ const shellHTML = `<!doctype html>
   #panel .md em{color:#d3b98a;font-style:italic}
   #panel .md hr{border:none;border-top:1px solid #262b36;margin:14px 0}
   #panel .md blockquote{border-left:3px solid #3a4150;margin:9px 0;padding:2px 0 2px 12px;color:#9aa2b1}
-  #hint{position:fixed;bottom:14px;left:16px;z-index:5;font-size:11px;color:#4b5261}
+  #hint{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:5;font-size:11px;color:#4b5261}
   #backbtn{position:fixed;top:16px;left:16px;z-index:7;display:none;align-items:center;
     background:rgba(14,18,26,.72);border:1px solid #262b36;border-radius:999px;color:#b7bdc9;
     padding:7px 14px;font-size:12px;cursor:pointer;backdrop-filter:blur(8px)}
@@ -230,13 +242,16 @@ function fitCamera(){
   if(!nodes.length){cam={x:innerWidth/2,y:innerHeight/2,s:1};return;}
   var minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   nodes.forEach(function(n){minx=Math.min(minx,n.x);miny=Math.min(miny,n.y);maxx=Math.max(maxx,n.x);maxy=Math.max(maxy,n.y);});
-  for(var i=0;i<fogPts.length;i++){var f=fogPts[i];minx=Math.min(minx,f.x-70);miny=Math.min(miny,f.y-70);maxx=Math.max(maxx,f.x+70);maxy=Math.max(maxy,f.y+70);}
+  for(var i=0;i<fogPts.length;i++){var f=fogPts[i];minx=Math.min(minx,f.x-90);miny=Math.min(miny,f.y-90);maxx=Math.max(maxx,f.x+90);maxy=Math.max(maxy,f.y+90);}
   var pad=70; minx-=pad;miny-=pad;maxx+=pad;maxy+=pad;
   var spanx=maxx-minx||1, spany=maxy-miny||1;
-  var s=Math.min(innerWidth/spanx, innerHeight/spany); s=clamp(s,0.15,1.4);
+  // Leave the top hint and the bottom HUD bar their own bands, and fit/centre the
+  // constellation into what is left so no star hides behind the chrome.
+  var topInset=54, botInset=72, availH=Math.max(120,innerHeight-topInset-botInset);
+  var s=Math.min(innerWidth/spanx, availH/spany); s=clamp(s,0.15,1.4);
   cam.s=s;
   var cx=(minx+maxx)/2, cy=(miny+maxy)/2;
-  cam.x=innerWidth/2-cx*s; cam.y=innerHeight/2-cy*s;
+  cam.x=innerWidth/2-cx*s; cam.y=(topInset+availH/2)-cy*s;
 }
 
 // --- parallax starfield ----------------------------------------------------
@@ -291,13 +306,13 @@ function drawFog(){
       ctx.beginPath(); ctx.moveTo(f.x,f.y); ctx.lineTo(f.anchor._x,f.anchor._y); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset=0;
     }
-    var breathe=0.82+0.18*Math.sin(clock*0.8+f.x*0.01), R=66;
+    var breathe=0.85+0.18*Math.sin(clock*0.8+f.x*0.01), R=92;
     var g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,R);
-    g.addColorStop(0,"rgba(122,98,192,"+(0.24*breathe)+")");
-    g.addColorStop(0.5,"rgba(92,82,170,"+(0.10*breathe)+")");
+    g.addColorStop(0,"rgba(140,112,216,"+(0.36*breathe)+")");
+    g.addColorStop(0.45,"rgba(104,92,186,"+(0.16*breathe)+")");
     g.addColorStop(1,"rgba(92,82,170,0)");
     ctx.fillStyle=g; ctx.beginPath(); ctx.arc(f.x,f.y,R,0,6.2831853); ctx.fill();
-    ctx.fillStyle="rgba(185,168,224,0.5)"; ctx.beginPath(); ctx.arc(f.x,f.y,2.2,0,6.2831853); ctx.fill();
+    ctx.fillStyle="rgba(196,180,232,0.62)"; ctx.beginPath(); ctx.arc(f.x,f.y,2.4,0,6.2831853); ctx.fill();
   }
 }
 function drawFogLabels(){
@@ -324,8 +339,8 @@ function drawEdge(e){
   var nx=-dy/len, ny=dx/len, bow=Math.min(46,len*0.13);
   var cx=mx+nx*bow, cy=my+ny*bow;
   ctx.beginPath(); ctx.moveTo(ax,ay); ctx.quadraticCurveTo(cx,cy,bx,by);
-  if(e.satisfied){ctx.strokeStyle="rgba(150,180,155,0.5)";ctx.lineWidth=1.6;ctx.setLineDash([]);}
-  else{ctx.strokeStyle="rgba(120,132,152,0.22)";ctx.lineWidth=1.2;ctx.setLineDash([4,6]);}
+  if(e.satisfied){ctx.strokeStyle="rgba(160,192,166,0.62)";ctx.lineWidth=1.8;ctx.setLineDash([]);}
+  else{ctx.strokeStyle="rgba(132,146,168,0.34)";ctx.lineWidth=1.3;ctx.setLineDash([4,6]);}
   ctx.stroke(); ctx.setLineDash([]);
   // Flow particles: on a SATISFIED edge, motes drift blocker->dependent, reading
   // as energy having unlocked the next step. Staggered phases, dim at the ends.
@@ -389,12 +404,25 @@ function drawLabels(){
   var fs=clamp(11*Math.pow(cam.s,0.3),8,13); // subtle shrink as you zoom out
   ctx.textAlign="center"; ctx.font=fs.toFixed(1)+"px ui-sans-serif,system-ui,sans-serif";
   ctx.shadowColor="rgba(0,0,0,0.85)"; ctx.shadowBlur=4;
+  // Greedy declutter: each label prefers to sit just under its star, but if that
+  // box would collide with one already placed it is nudged down (then up) until
+  // it clears. Deterministic order (nodes are number-sorted) keeps it stable.
+  var placed=[], h=fs+2, step=h+2, tries=[0,step,-step,2*step,-2*step,3*step];
   nodes.forEach(function(n){
-    var s=w2s(n); var c=col(n);
-    ctx.fillStyle=LABELCOL[n.status]||"#c8ccd6";
+    var s=w2s(n), c=col(n);
     var label=pad2(n.num);
     if(!numOnly){var t=n.title.length>30?n.title.slice(0,29)+"…":n.title; label+="  "+t;}
-    ctx.fillText(label, s.x, s.y+c.r*cam.s+fs+3);
+    var w=ctx.measureText(label).width, cx=s.x, cy=s.y+c.r*cam.s+fs+3, fy=cy;
+    for(var ti=0;ti<tries.length;ti++){
+      var ty=cy+tries[ti], ok=true;
+      for(var pi=0;pi<placed.length;pi++){var p=placed[pi];
+        if(Math.abs(cx-p.x)<(w+p.w)/2+4 && Math.abs(ty-p.y)<h+2){ok=false;break;}
+      }
+      if(ok){fy=ty;break;}
+    }
+    placed.push({x:cx,y:fy,w:w});
+    ctx.fillStyle=LABELCOL[n.status]||"#c8ccd6";
+    ctx.fillText(label, cx, fy);
   });
   ctx.shadowBlur=0;
 }
@@ -485,17 +513,20 @@ function mdToHtml(src){
 }
 function buildHud(){
   var hud=document.getElementById("hud"); hud.innerHTML="";
-  hud.appendChild(el("h1",null,graph.name));
+  var title=el("div","htitle");
+  title.appendChild(el("h1",null,graph.name));
+  if(graph.destination)title.appendChild(el("div","dest",graph.destination));
+  hud.appendChild(title);
+  hud.appendChild(el("div","spacer"));
   var c=graph.counts, counts=el("div","counts");
   function chip(cls,txt){counts.appendChild(el("span","c "+cls,txt));}
-  chip("resolved",c.resolved+" resolved"); chip("frontier",graph.counts.total? frontierCount()+" frontier":"0 frontier");
+  chip("resolved",c.resolved+" resolved"); chip("frontier",frontierCount()+" frontier");
   if(c.claimed)chip("claimed",c.claimed+" claimed");
   chip("blocked",blockedCount()+" blocked");
   if(c.outOfScope)chip("oos",c.outOfScope+" out of scope");
   hud.appendChild(counts);
   var bar=el("div","bar"); var span=document.createElement("span");
   span.style.width=(c.total? Math.round(c.resolved*100/c.total):0)+"%"; bar.appendChild(span); hud.appendChild(bar);
-  if(graph.destination)hud.appendChild(el("div","dest",graph.destination));
   var lg=el("div","legend");
   [["frontier","frontier"],["claimed","claimed"],["blocked","blocked"],["resolved","resolved"]].forEach(function(p){
     var b=el("b"); var d=el("span","dot"); d.style.background=COL[p[0]].core; b.appendChild(d); b.appendChild(document.createTextNode(p[1])); lg.appendChild(b);
@@ -523,9 +554,9 @@ function openPanel(n){
   // Ease the camera so the star sits centred in the space left of the panel.
   var p=document.getElementById("panel"), pw=p.offsetWidth||0, vx=(innerWidth-pw)/2, vy=innerHeight/2;
   goal.x=vx-n.x*goal.s; goal.y=vy-n.y*goal.s;
-  fillPanel(n); p.classList.add("open");
+  fillPanel(n); p.classList.add("open"); document.body.classList.add("panelopen");
 }
-function closePanel(){selected=null;document.getElementById("panel").classList.remove("open");}
+function closePanel(){selected=null;document.getElementById("panel").classList.remove("open");document.body.classList.remove("panelopen");}
 document.querySelector("#panel .x").onclick=closePanel;
 // Cross-ticket links in the rendered body jump the star-map to that node.
 document.querySelector("#panel .md").addEventListener("click",function(ev){
@@ -615,7 +646,7 @@ function setScreen(s){
   screen=s;
   document.getElementById("splash").style.display=s==="splash"?"flex":"none";
   document.getElementById("maplist").style.display=s==="maplist"?"flex":"none";
-  document.getElementById("hud").style.display=s==="map"?"block":"none";
+  document.getElementById("hud").style.display=s==="map"?"flex":"none";
   document.getElementById("backbtn").style.display=s==="map"?"flex":"none";
   document.getElementById("hint").style.display=s==="map"?"block":"none";
   if(s!=="map")closePanel();
