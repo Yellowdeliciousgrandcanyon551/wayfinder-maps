@@ -323,11 +323,12 @@ function drawFog(){
     ctx.fillStyle="rgba(196,180,232,0.62)"; ctx.beginPath(); ctx.arc(f.x,f.y,2.4,0,6.2831853); ctx.fill();
   }
 }
-function drawFogLabels(){
-  if(cam.s<0.42||!fogPts.length)return;
+function drawFogLabels(a){
+  if(cam.s<0.42||!fogPts.length||a<=0.002)return;
   var fs=clamp(10*Math.pow(cam.s,0.3),7.5,11.5);
   ctx.textAlign="center"; ctx.font="italic "+fs.toFixed(1)+"px ui-sans-serif,system-ui,sans-serif";
-  ctx.shadowColor="rgba(0,0,0,0.8)"; ctx.shadowBlur=4; ctx.fillStyle="rgba(184,168,220,0.8)";
+  ctx.shadowColor="rgba(0,0,0,"+(0.8*a).toFixed(3)+")"; ctx.shadowBlur=4;
+  ctx.fillStyle="rgba(184,168,220,"+(0.8*a).toFixed(3)+")";
   for(var i=0;i<fogPts.length;i++){var f=fogPts[i];
     var sx=f.x*ec.s+ec.x, sy=f.y*ec.s+ec.y;
     var t=f.title.length>26?f.title.slice(0,25)+"…":f.title;
@@ -406,12 +407,12 @@ function drawNode(n){
   }
   if(selected===n){ctx.strokeStyle="rgba(255,255,255,0.85)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,c.r+11,0,6.2831853);ctx.stroke();}
 }
-function drawLabels(){
-  if(cam.s<0.22)return;               // very far out: no text at all
+function drawLabels(a){
+  if(cam.s<0.22||a<=0.002)return;     // very far out: no text at all
   var numOnly=cam.s<0.42;             // far out: ticket number only
   var fs=clamp(11*Math.pow(cam.s,0.3),8,13); // subtle shrink as you zoom out
   ctx.textAlign="center"; ctx.font=fs.toFixed(1)+"px ui-sans-serif,system-ui,sans-serif";
-  ctx.shadowColor="rgba(0,0,0,0.85)"; ctx.shadowBlur=4;
+  ctx.shadowColor="rgba(0,0,0,"+(0.85*a).toFixed(3)+")"; ctx.shadowBlur=4;
   // Greedy declutter: each label prefers to sit just under its star, but if that
   // box would collide with one already placed it is nudged down (then up) until
   // it clears. Deterministic order (nodes are number-sorted) keeps it stable.
@@ -429,7 +430,7 @@ function drawLabels(){
       if(ok){fy=ty;break;}
     }
     placed.push({x:cx,y:fy,w:w});
-    ctx.fillStyle=LABELCOL[n.status]||"#c8ccd6";
+    ctx.fillStyle=hexA(LABELCOL[n.status]||"#c8ccd6", a);
     ctx.fillText(label, cx, fy);
   });
   ctx.shadowBlur=0;
@@ -465,7 +466,11 @@ function render(){
   ctx.save(); ctx.globalAlpha=mapAlpha; ctx.translate(ec.x,ec.y); ctx.scale(ec.s,ec.s);
   drawFog(); edges.forEach(drawEdge); nodes.forEach(drawNode);
   ctx.restore();
-  ctx.save(); ctx.globalAlpha=mapAlpha; drawLabels(); drawFogLabels(); ctx.restore();
+  // Labels take the fade as an argument rather than through globalAlpha: WebKit's
+  // canvas ignores globalAlpha on fillText once a shadow is set, so text drawn that
+  // way stays fully opaque while the constellation dissolves. Baking the alpha into
+  // the text and shadow colours is honoured by every engine.
+  drawLabels(mapAlpha); drawFogLabels(mapAlpha);
   requestAnimationFrame(render);
 }
 
