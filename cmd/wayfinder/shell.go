@@ -154,6 +154,12 @@ var clock=0, T0=(window.performance&&performance.now?performance.now():Date.now(
 var goal={x:0,y:0,s:1}, EASE=0.28; // cam eases toward goal each frame: pan, zoom, and select all move the goal
 var POSEASE=0.12, lastClock=0, lastVersion=null, polling=false; // live-reload + node position tweening
 var screen="splash", currentEffort=null, lastProject=null;      // splash | maplist | map
+// Map-layer transition: mapAlpha (0..1) fades the constellation in/out and a
+// coupled gentle zoom (about the viewport centre) rides along, so opening,
+// leaving or switching a map dissolves over ~2s instead of snapping.
+var mapAlpha=1, ec={x:0,y:0,s:1};
+var fade={on:false,t:0,dur:2.0,from:1,to:1,cb:null};
+function startFade(from,to,dur,cb){fade.from=from;fade.to=to;fade.t=0;fade.dur=dur;fade.cb=cb||null;fade.on=true;mapAlpha=from;}
 
 var COL={
   resolved:{core:"#b9c9e0",glow:"#5d76ad",r:6,gr:26},
@@ -171,7 +177,9 @@ function pad2(n){return (n<10?"0":"")+n;}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
 function hexA(hex,al){var h=hex.replace("#","");var r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);return "rgba("+r+","+g+","+b+","+al+")";}
 // w2s maps a node's DISPLAY position (base + idle bob, set each frame) to screen.
-function w2s(n){var x=(n._x!=null?n._x:n.x), y=(n._y!=null?n._y:n.y);return {x:x*cam.s+cam.x,y:y*cam.s+cam.y};}
+// It reads the effective camera ec (base cam folded with the transition zoom)
+// so nodes, labels and hit-testing all stay aligned mid-transition.
+function w2s(n){var x=(n._x!=null?n._x:n.x), y=(n._y!=null?n._y:n.y);return {x:x*ec.s+ec.x,y:y*ec.s+ec.y};}
 
 // --- deterministic rank-biased force layout --------------------------------
 function ringR(rank){return 130+rank*165;}
@@ -321,7 +329,7 @@ function drawFogLabels(){
   ctx.textAlign="center"; ctx.font="italic "+fs.toFixed(1)+"px ui-sans-serif,system-ui,sans-serif";
   ctx.shadowColor="rgba(0,0,0,0.8)"; ctx.shadowBlur=4; ctx.fillStyle="rgba(184,168,220,0.8)";
   for(var i=0;i<fogPts.length;i++){var f=fogPts[i];
-    var sx=f.x*cam.s+cam.x, sy=f.y*cam.s+cam.y;
+    var sx=f.x*ec.s+ec.x, sy=f.y*ec.s+ec.y;
     var t=f.title.length>26?f.title.slice(0,25)+"…":f.title;
     ctx.fillText(t, sx, sy+18);
   }
@@ -444,13 +452,20 @@ function render(){
   // Camera eases toward its goal every frame — pan, zoom and select all just
   // move the goal, giving weighty motion instead of instant jumps.
   cam.x+=(goal.x-cam.x)*EASE; cam.y+=(goal.y-cam.y)*EASE; cam.s+=(goal.s-cam.s)*EASE;
+  // Advance the load/unload fade (smoothstep), then derive the effective camera:
+  // a gentle zoom coupled to mapAlpha, taken about the viewport centre.
+  if(fade.on){fade.t+=dt;var u=clamp(fade.t/fade.dur,0,1);var e=u*u*(3-2*u);
+    mapAlpha=fade.from+(fade.to-fade.from)*e;
+    if(u>=1){fade.on=false;if(fade.cb){var cb=fade.cb;fade.cb=null;cb();}}}
+  var zt=0.95+0.05*mapAlpha, Cx=W/2, Cy=H/2;
+  ec.s=cam.s*zt; ec.x=Cx+(cam.x-Cx)*zt; ec.y=Cy+(cam.y-Cy)*zt;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.fillStyle="#05070d"; ctx.fillRect(0,0,W,H);
-  drawStars(W,H);
-  ctx.save(); ctx.translate(cam.x,cam.y); ctx.scale(cam.s,cam.s);
+  drawStars(W,H);                                            // starfield backdrop never fades
+  ctx.save(); ctx.globalAlpha=mapAlpha; ctx.translate(ec.x,ec.y); ctx.scale(ec.s,ec.s);
   drawFog(); edges.forEach(drawEdge); nodes.forEach(drawNode);
   ctx.restore();
-  drawLabels(); drawFogLabels();
+  ctx.save(); ctx.globalAlpha=mapAlpha; drawLabels(); drawFogLabels(); ctx.restore();
   requestAnimationFrame(render);
 }
 
@@ -642,6 +657,26 @@ function startPolling(){
 }
 
 // --- screens ---------------------------------------------------------------
+// unmountMap tears the constellation down cleanly: no stale nodes/edges/fog can
+// bleed through the (semi-transparent) splash or map-list overlays, and the
+// poller goes idle because currentEffort is cleared.
+function unmountMap(){
+  currentEffort=null; lastVersion=null; selected=null;
+  graph=null; nodes=[]; edges=[]; byNum={}; fogPts=[];
+  closePanel();
+}
+// leaveMap fades + zooms the map out, then unmounts and runs next (which
+// navigates to splash or the map list). The map chrome is hidden up front so it
+// doesn't hang over the dissolving stars.
+function leaveMap(next){
+  currentEffort=null;                                        // stop the poller applying mid-dissolve
+  document.getElementById("hud").style.display="none";
+  document.getElementById("backbtn").style.display="none";
+  document.getElementById("hint").style.display="none";
+  closePanel();
+  if(screen!=="map"||!nodes.length){unmountMap();next();return;}
+  startFade(mapAlpha,0,1.8,function(){unmountMap();next();});
+}
 function setScreen(s){
   screen=s;
   document.getElementById("splash").style.display=s==="splash"?"flex":"none";
@@ -689,15 +724,15 @@ function openProject(path){
 function loadMap(effort){
   currentEffort=effort; lastVersion=null; selected=null;
   fetch("/api/graph?effort="+encodeURIComponent(effort)).then(function(r){return r.json();}).then(function(g){
-    applyGraph(g); setScreen("map");
+    applyGraph(g); setScreen("map"); startFade(0,1,2.2);     // dissolve the constellation in
   });
 }
 
 document.getElementById("openfolder").onclick=function(){
   fetch("/api/pick").then(function(r){return r.json();}).then(function(d){if(d.path)openProject(d.path);});
 };
-document.getElementById("openanother").onclick=showSplash;
-document.getElementById("backbtn").onclick=function(){currentEffort=null; if(lastProject)openProject(lastProject); else showSplash();};
+document.getElementById("openanother").onclick=function(){leaveMap(showSplash);};
+document.getElementById("backbtn").onclick=function(){leaveMap(function(){if(lastProject)openProject(lastProject);else showSplash();});};
 
 resize(); initStars(); render(); startPolling();
 fetch("/api/initial").then(function(r){return r.json();}).then(function(init){
