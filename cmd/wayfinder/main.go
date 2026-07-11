@@ -15,8 +15,13 @@ const usage = `wayfinder — inspect a wayfinder map
 usage:
   wayfinder status <effort-dir>   print the frontier and the state of the map
   wayfinder lint   <effort-dir>   check the map's format invariants
+  wayfinder serve  <effort-dir>   open the map in a browser (local web server)
+  wayfinder app    <effort-dir>   open the map in a native window
 
 <effort-dir> holds map.md and tickets/. Defaults to the working directory.
+
+serve listens on :7777 (override with PORT) and re-reads the map on each request.
+app wraps the same server in a native window (requires a cgo build).
 
 exit: 0 clean, 1 lint errors found, 2 could not read the map`
 
@@ -44,6 +49,10 @@ func main() {
 		os.Exit(status(e))
 	case "lint":
 		os.Exit(lint(e))
+	case "serve":
+		os.Exit(serve(dir))
+	case "app":
+		os.Exit(app(dir))
 	default:
 		fmt.Fprintf(os.Stderr, "wayfinder: unknown command %q\n\n%s\n", cmd, usage)
 		os.Exit(2)
