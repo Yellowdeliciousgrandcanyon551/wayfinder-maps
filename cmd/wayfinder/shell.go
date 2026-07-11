@@ -166,18 +166,20 @@ function drawEdge(e){
   if(e.satisfied){ctx.strokeStyle="rgba(150,180,155,0.5)";ctx.lineWidth=1.6;ctx.setLineDash([]);}
   else{ctx.strokeStyle="rgba(120,132,152,0.22)";ctx.lineWidth=1.2;ctx.setLineDash([4,6]);}
   ctx.stroke(); ctx.setLineDash([]);
-  // Arrowhead, oriented along the curve's tangent at the dependent end
-  // (for a quadratic Bezier the end tangent is b - controlPoint), backed off
-  // past the target star's core so it points at the node rather than into it.
-  var tdx=b.x-cx, tdy=b.y-cy, tl=Math.hypot(tdx,tdy)||1; var ux=tdx/tl, uy=tdy/tl;
-  var back=col(b).r+4, tipx=b.x-ux*back, tipy=b.y-uy*back;
-  var ah=9, aw=5, px=-uy, py=ux;
+  // Arrowhead at the curve MIDPOINT, pointing blocker->dependent, so direction
+  // reads without crowding either vertex. For a quadratic Bezier the midpoint is
+  // B(0.5)=0.25a+0.5c+0.25b and its tangent is simply b-a. The triangle is
+  // centred on that point (tip half a length ahead, base half behind).
+  var midx=0.25*a.x+0.5*cx+0.25*b.x, midy=0.25*a.y+0.5*cy+0.25*b.y;
+  var adx=b.x-a.x, ady=b.y-a.y, al=Math.hypot(adx,ady)||1, ux=adx/al, uy=ady/al;
+  var ah=10, aw=5.5, px=-uy, py=ux;
+  var tipx=midx+ux*(ah*0.5), tipy=midy+uy*(ah*0.5);
   ctx.beginPath();
   ctx.moveTo(tipx,tipy);
   ctx.lineTo(tipx-ux*ah+px*aw, tipy-uy*ah+py*aw);
   ctx.lineTo(tipx-ux*ah-px*aw, tipy-uy*ah-py*aw);
   ctx.closePath();
-  ctx.fillStyle=e.satisfied?"rgba(175,205,180,0.8)":"rgba(140,152,172,0.42)";
+  ctx.fillStyle=e.satisfied?"rgba(175,205,180,0.85)":"rgba(140,152,172,0.45)";
   ctx.fill();
 }
 function drawNode(n){
