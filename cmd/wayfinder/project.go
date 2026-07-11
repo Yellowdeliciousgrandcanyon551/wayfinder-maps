@@ -135,10 +135,24 @@ func loadRecents() []recentEntry {
 	return live
 }
 
+// saveRecents writes the list back, capped.
+func saveRecents(rs []recentEntry) {
+	f, err := recentsFile()
+	if err != nil {
+		return
+	}
+	if len(rs) > 8 {
+		rs = rs[:8]
+	}
+	os.MkdirAll(filepath.Dir(f), 0o755)
+	if b, err := json.MarshalIndent(rs, "", "  "); err == nil {
+		os.WriteFile(f, b, 0o644)
+	}
+}
+
 // addRecent moves a project to the front of the recents list (deduped, capped).
 func addRecent(project string) {
-	f, err := recentsFile()
-	if err != nil || project == "" {
+	if project == "" {
 		return
 	}
 	out := []recentEntry{{Path: project, Name: filepath.Base(project), Maps: len(listMaps(project))}}
@@ -147,13 +161,22 @@ func addRecent(project string) {
 			out = append(out, r)
 		}
 	}
-	if len(out) > 8 {
-		out = out[:8]
+	saveRecents(out)
+}
+
+// removeRecent forgets a project. It only drops the entry from the recents list —
+// the project folder and everything in it are left alone.
+func removeRecent(project string) {
+	if project == "" {
+		return
 	}
-	os.MkdirAll(filepath.Dir(f), 0o755)
-	if b, err := json.MarshalIndent(out, "", "  "); err == nil {
-		os.WriteFile(f, b, 0o644)
+	out := []recentEntry{}
+	for _, r := range loadRecents() {
+		if r.Path != project {
+			out = append(out, r)
+		}
 	}
+	saveRecents(out)
 }
 
 // pickFolder opens the macOS "choose folder" dialog and returns the POSIX path,

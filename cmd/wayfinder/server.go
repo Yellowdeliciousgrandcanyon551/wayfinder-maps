@@ -67,6 +67,18 @@ func newServer(initial string) http.Handler {
 		writeJSON(w, loadRecents())
 	})
 
+	// Forget a recent project, and hand back the trimmed list so the client can
+	// re-render from the truth on disk. POST, because it writes. Only the recents
+	// entry is dropped; the project folder is never touched.
+	mux.HandleFunc("/api/recents/remove", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			return
+		}
+		removeRecent(r.URL.Query().Get("project"))
+		writeJSON(w, loadRecents())
+	})
+
 	// Maps in a chosen project; opening one records it in recents.
 	mux.HandleFunc("/api/maps", func(w http.ResponseWriter, r *http.Request) {
 		project := r.URL.Query().Get("project")

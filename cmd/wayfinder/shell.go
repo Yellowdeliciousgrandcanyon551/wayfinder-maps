@@ -95,11 +95,20 @@ const shellHTML = `<!doctype html>
   #openfolder:hover{background:#356fe6}
   .recent-h{margin:30px 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;text-align:left}
   #recents{display:flex;flex-direction:column;gap:8px}
-  .recent{display:flex;align-items:center;justify-content:space-between;text-align:left;
+  .recent{position:relative;display:flex;align-items:center;gap:10px;text-align:left;
     background:rgba(23,26,33,.8);border:1px solid #262b36;border-radius:10px;padding:11px 14px;cursor:pointer;color:#e6e9ef}
   .recent:hover{border-color:#3a4356;background:rgba(30,35,44,.9)}
-  .recent .rname{font-size:13px}
-  .recent .rmeta{font-size:11px;color:#8b93a3}
+  .recent .rname{flex:1;font-size:13px}
+  /* At rest the count sits flush against the right edge; on hover it slides aside
+     and the dismiss moves into the space it vacates. The dismiss is taken out of
+     flow so that while hidden it costs no layout and cannot hold that space open. */
+  .recent .rmeta{font-size:11px;color:#8b93a3;transition:transform .14s cubic-bezier(.2,.7,.2,1)}
+  .recent:hover .rmeta{transform:translateX(-22px)}
+  .recent .rx{position:absolute;right:12px;top:0;bottom:0;display:flex;align-items:center;
+    padding:0 4px;opacity:0;transition:opacity .14s,color .12s;
+    color:#6b7280;font-size:16px;line-height:1}
+  .recent:hover .rx{opacity:1}
+  .recent .rx:hover{color:#e6e9ef}
   #maplist{flex-direction:column;padding:56px 40px 40px;overflow:auto}
   /* Title and the way out sit side by side at the top-left, so the escape hatch
      reads as attached to the project rather than floating in the corner. */
@@ -699,19 +708,33 @@ function setScreen(s){
   document.getElementById("hint").style.display=s==="map"?"block":"none";
   if(s!=="map")closePanel();
 }
+// renderRecents paints the list. The remove endpoint answers with the trimmed
+// list, so forgetting an entry re-renders from the server's truth rather than
+// from a guess about what is left.
+function renderRecents(rs){
+  var rc=document.getElementById("recents"); rc.innerHTML="";
+  if(!rs||!rs.length){rc.innerHTML="<div class='muted' style='text-align:left;font-size:12px'>No recent projects yet.</div>";return;}
+  rs.forEach(function(p){
+    var b=el("button","recent");
+    b.appendChild(el("span","rname",p.name));
+    b.appendChild(el("span","rmeta",p.maps+" map"+(p.maps===1?"":"s")));
+    // A span, not a button: this row is itself a button, and nesting one inside
+    // another is invalid. stopPropagation keeps the dismiss from opening the
+    // project it is dismissing.
+    var x=el("span","rx","×"); x.title="Forget this project";
+    x.onclick=function(ev){ev.stopPropagation();
+      fetch("/api/recents/remove?project="+encodeURIComponent(p.path),{method:"POST"})
+        .then(function(r){return r.json();}).then(renderRecents);
+    };
+    b.appendChild(x);
+    b.onclick=function(){openProject(p.path);};
+    rc.appendChild(b);
+  });
+}
 function showSplash(){
   setScreen("splash");
-  var rc=document.getElementById("recents"); rc.innerHTML="";
-  fetch("/api/recents").then(function(r){return r.json();}).then(function(rs){
-    if(!rs||!rs.length){rc.innerHTML="<div class='muted' style='text-align:left;font-size:12px'>No recent projects yet.</div>";return;}
-    rs.forEach(function(p){
-      var b=el("button","recent");
-      b.appendChild(el("span","rname",p.name));
-      b.appendChild(el("span","rmeta",p.maps+" map"+(p.maps===1?"":"s")));
-      b.onclick=function(){openProject(p.path);};
-      rc.appendChild(b);
-    });
-  });
+  document.getElementById("recents").innerHTML="";
+  fetch("/api/recents").then(function(r){return r.json();}).then(renderRecents);
 }
 function openProject(path){
   lastProject=path;
