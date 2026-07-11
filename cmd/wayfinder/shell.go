@@ -101,9 +101,10 @@ const shellHTML = `<!doctype html>
   .recent .rname{font-size:13px}
   .recent .rmeta{font-size:11px;color:#8b93a3}
   #maplist{flex-direction:column;padding:56px 40px 40px;overflow:auto}
-  .listtop{display:flex;align-items:flex-end;justify-content:space-between;
+  /* Title and the way out sit side by side at the top-left, so the escape hatch
+     reads as attached to the project rather than floating in the corner. */
+  .listtop{display:flex;align-items:center;gap:14px;
     max-width:1000px;margin:0 auto 26px;width:100%}
-  .listkick{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280}
   #projname{font-size:22px;font-weight:600;color:#e6e9ef}
   #openanother{background:none;border:1px solid #262b36;color:#b7bdc9;border-radius:999px;padding:7px 14px;font-size:12px;cursor:pointer}
   #openanother:hover{color:#e6e9ef;border-color:#3a4356}
@@ -139,7 +140,7 @@ const shellHTML = `<!doctype html>
 
 <div id="maplist">
   <div class="listtop">
-    <div><div class="listkick">project</div><div id="projname"></div></div>
+    <div id="projname"></div>
     <button id="openanother">Open another&hellip;</button>
   </div>
   <div id="cards"></div>
