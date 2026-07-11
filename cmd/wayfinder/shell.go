@@ -63,7 +63,8 @@ var canvas=document.getElementById("sky"), ctx=canvas.getContext("2d");
 var dpr=Math.max(1,window.devicePixelRatio||1);
 var cam={x:0,y:0,s:1};
 var graph=null, nodes=[], edges=[], byNum={}, selected=null;
-var clock=0, T0=(window.performance&&performance.now?performance.now():Date.now()), camTarget=null;
+var clock=0, T0=(window.performance&&performance.now?performance.now():Date.now());
+var goal={x:0,y:0,s:1}, EASE=0.28; // cam eases toward goal each frame: pan, zoom, and select all move the goal
 
 var COL={
   resolved:{core:"#b9c9e0",glow:"#5d76ad",r:6,gr:26},
@@ -235,9 +236,9 @@ function render(){
   // hit-testing all read _x/_y, so nothing detaches from a bobbing star.
   for(var i=0;i<nodes.length;i++){var n=nodes[i], ph=n.num*1.7;
     n._x=n.x+Math.sin(clock*0.7+ph)*2.4; n._y=n.y+Math.cos(clock*0.55+ph)*2.4;}
-  // Camera easing toward a selected star; cancelled by any manual pan/zoom.
-  if(camTarget){cam.x+=(camTarget.x-cam.x)*0.16; cam.y+=(camTarget.y-cam.y)*0.16;
-    if(Math.abs(camTarget.x-cam.x)<0.4&&Math.abs(camTarget.y-cam.y)<0.4){cam.x=camTarget.x;cam.y=camTarget.y;camTarget=null;}}
+  // Camera eases toward its goal every frame — pan, zoom and select all just
+  // move the goal, giving weighty motion instead of instant jumps.
+  cam.x+=(goal.x-cam.x)*EASE; cam.y+=(goal.y-cam.y)*EASE; cam.s+=(goal.s-cam.s)*EASE;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.fillStyle="#05070d"; ctx.fillRect(0,0,W,H);
   drawStars(W,H);
@@ -277,7 +278,7 @@ function openPanel(n){
   var p=document.getElementById("panel");
   // Ease the camera so the star sits centred in the space left of the panel.
   var pw=p.offsetWidth||0, vx=(innerWidth-pw)/2, vy=innerHeight/2;
-  camTarget={x:vx-n.x*cam.s, y:vy-n.y*cam.s};
+  goal.x=vx-n.x*goal.s; goal.y=vy-n.y*goal.s;
   var h=p.querySelector("h2"); h.innerHTML=""; h.appendChild(el("span","num",pad2(n.num))); h.appendChild(document.createTextNode(n.title));
   var meta=p.querySelector(".meta"); meta.innerHTML="";
   meta.appendChild(el("span","c "+(n.status==="out_of_scope"?"oos":n.status), n.status.replace(/_/g," ")));
@@ -295,20 +296,20 @@ document.querySelector("#panel .x").onclick=closePanel;
 
 // --- camera interaction ----------------------------------------------------
 var down=false, moved=0, last={x:0,y:0};
-canvas.addEventListener("mousedown",function(ev){down=true;moved=0;camTarget=null;last={x:ev.clientX,y:ev.clientY};canvas.classList.add("drag");});
+canvas.addEventListener("mousedown",function(ev){down=true;moved=0;last={x:ev.clientX,y:ev.clientY};canvas.classList.add("drag");});
 window.addEventListener("mousemove",function(ev){
   if(!down)return; var dx=ev.clientX-last.x, dy=ev.clientY-last.y;
-  cam.x+=dx; cam.y+=dy; moved+=Math.abs(dx)+Math.abs(dy); last={x:ev.clientX,y:ev.clientY};
+  goal.x+=dx; goal.y+=dy; moved+=Math.abs(dx)+Math.abs(dy); last={x:ev.clientX,y:ev.clientY};
 });
 window.addEventListener("mouseup",function(ev){
   canvas.classList.remove("drag"); if(!down)return; down=false;
   if(moved<5)hitTest(ev.clientX,ev.clientY);
 });
 canvas.addEventListener("wheel",function(ev){
-  ev.preventDefault(); camTarget=null;
-  var f=Math.exp(-ev.deltaY*0.0012); var ns=clamp(cam.s*f,0.15,4);
-  var wx=(ev.clientX-cam.x)/cam.s, wy=(ev.clientY-cam.y)/cam.s;
-  cam.s=ns; cam.x=ev.clientX-wx*ns; cam.y=ev.clientY-wy*ns;
+  ev.preventDefault();
+  var f=Math.exp(-ev.deltaY*0.0012); var ns=clamp(goal.s*f,0.15,4);
+  var wx=(ev.clientX-goal.x)/goal.s, wy=(ev.clientY-goal.y)/goal.s;
+  goal.s=ns; goal.x=ev.clientX-wx*ns; goal.y=ev.clientY-wy*ns;
 },{passive:false});
 window.addEventListener("keydown",function(ev){if(ev.key==="Escape")closePanel();});
 function hitTest(mx,my){
@@ -324,7 +325,8 @@ resize(); initStars();
 fetch("graph.json").then(function(r){return r.json();}).then(function(g){
   graph=g; nodes=(g.nodes||[]).slice().sort(function(a,b){return a.num-b.num;});
   edges=g.edges||[]; byNum={}; nodes.forEach(function(n){byNum[n.num]=n;});
-  layout(); nodes.forEach(function(n){n._x=n.x;n._y=n.y;}); fitCamera(); buildHud(); render();
+  layout(); nodes.forEach(function(n){n._x=n.x;n._y=n.y;}); fitCamera();
+  goal.x=cam.x; goal.y=cam.y; goal.s=cam.s; buildHud(); render();
 }).catch(function(err){
   document.getElementById("hud").innerHTML="<h1>Couldn't load graph.json</h1><div class=dest>"+String(err)+"</div>";
   render();
