@@ -670,8 +670,14 @@ function unmountMap(){
   graph=null; nodes=[]; edges=[]; byNum={}; fogPts=[];
   closePanel();
 }
-// leaveMap fades + zooms the map out, then unmounts and runs next (which
-// navigates to splash or the map list). The map chrome is hidden up front so it
+// leaveMap runs next (splash or the map list) straight away and lets the
+// constellation dissolve behind the overlay, which is semi-transparent — so the
+// reader gets the destination immediately and the stars fade out under it rather
+// than making them wait. The unmount is deferred to the end of the fade.
+//
+// Opening another map mid-dissolve is safe: loadMap starts a new fade, and
+// startFade replaces fade.cb, so this fade's pending unmountMap is dropped and
+// cannot wipe the freshly loaded graph. The map chrome is hidden up front so it
 // doesn't hang over the dissolving stars.
 function leaveMap(next){
   currentEffort=null;                                        // stop the poller applying mid-dissolve
@@ -680,7 +686,8 @@ function leaveMap(next){
   document.getElementById("hint").style.display="none";
   closePanel();
   if(screen!=="map"||!nodes.length){unmountMap();next();return;}
-  startFade(mapAlpha,0,1.8,function(){unmountMap();next();});
+  next();                                                    // destination appears at once
+  startFade(mapAlpha,0,1.8,unmountMap);                      // stars dissolve behind it
 }
 function setScreen(s){
   screen=s;
