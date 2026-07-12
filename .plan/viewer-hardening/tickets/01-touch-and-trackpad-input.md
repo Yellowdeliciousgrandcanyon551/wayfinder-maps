@@ -1,6 +1,8 @@
 ---
 type: task
 blocked_by: []
+claimed_by: claude-code/fable-5
+claimed_at: 2026-07-12T13:26:00Z
 ---
 
 # Touch and trackpad input for the star-map
