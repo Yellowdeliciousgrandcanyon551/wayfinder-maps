@@ -1,4 +1,4 @@
-# wayfinder-map
+# wayfinder-maps
 
 A read-only CLI and viewer for
 [wayfinder](https://github.com/mattpocock/skills/tree/main/skills/engineering/wayfinder)
@@ -7,14 +7,14 @@ a large effort as a graph of investigation tickets. The wayfinder method and its
 were created by [Matt Pocock](https://github.com/mattpocock); this repo adapts them and
 adds the tooling.
 
-- **`wayfinder status <dir>`** — what is resolved, what is in flight, and what is ready
+- **`wayfinder-maps status <dir>`** — what is resolved, what is in flight, and what is ready
   to claim (the _frontier_: open, unclaimed, every blocker resolved).
-- **`wayfinder lint <dir>`** — does the map still tell the truth?
-- **`wayfinder serve` / `app`** — the map as a star-map, in a browser or a native window
+- **`wayfinder-maps lint <dir>`** — does the map still tell the truth?
+- **`wayfinder-maps serve` / `app`** — the map as a star-map, in a browser or a native window
   ([design notes](docs/starmap-design.md)).
 
 ```
-$ wayfinder status ../expensif/.plan/daily-timeline
+$ wayfinder-maps status ../expensif/.plan/daily-timeline
 Daily Timeline — continuous days, empty days included
 6 resolved · 0 claimed · 4 open · 0 out of scope
 
@@ -37,12 +37,12 @@ Fog: 5 patches, 1 anchored to a ticket
 ### Skills, as a Claude Code plugin
 
 ```
-/plugin marketplace add rengwu/wayfinder-map
-/plugin install wayfinder@wayfinder
+/plugin marketplace add rengwu/wayfinder-maps
+/plugin install wayfinder-maps@wayfinder-maps
 ```
 
-`/wayfinder` then works in every project; the map lands in that project's `.plan/`. The
-plugin bundles `wayfinder` plus the four skills it invokes by name — `grill-me`,
+`/wayfinder-maps` then works in every project; the map lands in that project's `.plan/`. The
+plugin bundles `wayfinder-maps` plus the four skills it invokes by name — `grill-me`,
 `research`, `prototype`, `domain-modeling`. All five were originally authored by Matt
 Pocock in [mattpocock/skills](https://github.com/mattpocock/skills); the copies under
 [`skills/`](skills/) are MIT-licensed adaptations.
@@ -50,15 +50,15 @@ Pocock in [mattpocock/skills](https://github.com/mattpocock/skills); the copies 
 ### Skills, drop-in for any harness
 
 Copy [`skills/`](skills/) into your project and tell your agent to read
-`skills/wayfinder/SKILL.md` and follow it; the skills it names live alongside. A pointer
+`skills/wayfinder-maps/SKILL.md` and follow it; the skills it names live alongside. A pointer
 in the project's `AGENTS.md` / `CLAUDE.md` saves retyping.
 
 ### The binary
 
-- Download from [Releases](https://github.com/rengwu/wayfinder-map/releases). macOS
-  builds carry the native window; Linux/Windows are pure Go, where `wayfinder serve` is
+- Download from [Releases](https://github.com/rengwu/wayfinder-maps/releases). macOS
+  builds carry the native window; Linux/Windows are pure Go, where `wayfinder-maps serve` is
   the viewer.
-- `go install github.com/rengwu/wayfinder-map/cmd/wayfinder@latest`
+- `go install github.com/rengwu/wayfinder-maps/cmd/wayfinder-maps@latest`
 
 Skill and binary are independent — each just reads the on-disk contract.
 
@@ -73,7 +73,7 @@ for those: it runs after the fact and re-establishes the base the next session r
 ## The format contract
 
 The contract is the skill's local-markdown adapter,
-[`TRACKER-MARKDOWN.md`](skills/wayfinder/TRACKER-MARKDOWN.md) — the skill itself is
+[`TRACKER-MARKDOWN.md`](skills/wayfinder-maps/TRACKER-MARKDOWN.md) — the skill itself is
 tracker-agnostic method. This tool implements that adapter; any other reader should
 target the same file. In summary: structure the facts, leave the prose alone. A ticket's
 type and edges have exactly one correct value a machine can check. Its **Question** and
@@ -177,9 +177,9 @@ Two older shapes still parse, each lints as a warning, and neither is written an
 ## Build from source
 
 ```
-go build ./cmd/wayfinder      # pure Go: status, lint, serve
+go build ./cmd/wayfinder-maps      # pure Go: status, lint, serve
 go test ./...
 ```
 
-`wayfinder app` needs a cgo build for the native webview window; without one it points
+`wayfinder-maps app` needs a cgo build for the native webview window; without one it points
 users at `serve`. Releases are cut by tagging `v*` — CI cross-builds via GoReleaser.

@@ -20,15 +20,15 @@ func app(dir string) int {
 
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "wayfinder: %v\n", err)
+		fmt.Fprintf(os.Stderr, "wayfinder-maps: %v\n", err)
 		return 2
 	}
 	go http.Serve(ln, newServer(dir))
 	url := "http://" + ln.Addr().String() + "/"
 
-	title := "wayfinder"
+	title := "wayfinder-maps"
 	if dir != "" {
-		title = "wayfinder — " + dir
+		title = "wayfinder-maps — " + dir
 	}
 	w := webview.New(false)
 	defer w.Destroy()

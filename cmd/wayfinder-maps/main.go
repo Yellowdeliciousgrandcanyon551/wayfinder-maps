@@ -7,16 +7,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rengwu/wayfinder-map/internal/wayfinder"
+	"github.com/rengwu/wayfinder-maps/internal/wayfinder"
 )
 
-const usage = `wayfinder — inspect a wayfinder map
+const usage = `wayfinder-maps — inspect a wayfinder map
 
 usage:
-  wayfinder status <effort-dir>   print the frontier and the state of the map
-  wayfinder lint   <effort-dir>   check the map's format invariants
-  wayfinder serve  [path]         open in a browser (local web server)
-  wayfinder app    [path]         open in a native window
+  wayfinder-maps status <effort-dir>   print the frontier and the state of the map
+  wayfinder-maps lint   <effort-dir>   check the map's format invariants
+  wayfinder-maps serve  [path]         open in a browser (local web server)
+  wayfinder-maps app    [path]         open in a native window
 
 <effort-dir> holds map.md and tickets/; status/lint default to the working dir.
 For serve/app, [path] is optional: an effort opens straight into its map, a
@@ -50,7 +50,7 @@ func main() {
 		}
 		e, err := wayfinder.Load(d)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "wayfinder: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wayfinder-maps: %v\n", err)
 			os.Exit(2)
 		}
 		if cmd == "status" {
@@ -62,7 +62,7 @@ func main() {
 	case "app":
 		os.Exit(app(dir))
 	default:
-		fmt.Fprintf(os.Stderr, "wayfinder: unknown command %q\n\n%s\n", cmd, usage)
+		fmt.Fprintf(os.Stderr, "wayfinder-maps: unknown command %q\n\n%s\n", cmd, usage)
 		os.Exit(2)
 	}
 }

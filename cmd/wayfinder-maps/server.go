@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rengwu/wayfinder-map/internal/wayfinder"
+	"github.com/rengwu/wayfinder-maps/internal/wayfinder"
 )
 
 // serve runs the map viewer as a local web server, blocking until interrupted.
@@ -19,12 +19,12 @@ func serve(dir string) int {
 	}
 	addr := "localhost:" + port
 	if dir == "" {
-		fmt.Printf("wayfinder: serving at http://%s\n", addr)
+		fmt.Printf("wayfinder-maps: serving at http://%s\n", addr)
 	} else {
-		fmt.Printf("wayfinder: serving %s at http://%s\n", dir, addr)
+		fmt.Printf("wayfinder-maps: serving %s at http://%s\n", dir, addr)
 	}
 	if err := http.ListenAndServe(addr, newServer(dir)); err != nil {
-		fmt.Fprintf(os.Stderr, "wayfinder: %v\n", err)
+		fmt.Fprintf(os.Stderr, "wayfinder-maps: %v\n", err)
 		return 2
 	}
 	return 0
@@ -39,7 +39,7 @@ func newServer(initial string) http.Handler {
 	writeJSON := func(w http.ResponseWriter, v any) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(v); err != nil {
-			fmt.Fprintf(os.Stderr, "wayfinder: encode: %v\n", err)
+			fmt.Fprintf(os.Stderr, "wayfinder-maps: encode: %v\n", err)
 		}
 	}
 

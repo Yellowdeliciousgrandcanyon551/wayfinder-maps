@@ -106,5 +106,5 @@ The layout algorithm — deterministic **and** rank-biased **and** force-spread
 **and** non-overlapping — is the hard part and where the look lives or dies.
 Expect to iterate here once it's on screen. The canvas *feel* can't be verified
 from a headless session (no browser to screenshot); it's confirmed by eye via
-`wayfinder app <effort-dir>`. Plumbing (the JSON endpoint, the layout math) is
+`wayfinder-maps app <effort-dir>`. Plumbing (the JSON endpoint, the layout math) is
 covered by Go tests as usual.

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rengwu/wayfinder-map/internal/wayfinder"
+	"github.com/rengwu/wayfinder-maps/internal/wayfinder"
 )
 
 // mapInfo is a one-line summary of a wayfinder map, for the picker's card list.
@@ -109,7 +109,7 @@ func recentsFile() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "wayfinder", "recents.json"), nil
+	return filepath.Join(dir, "wayfinder-maps", "recents.json"), nil
 }
 
 // loadRecents reads the recents list, dropping folders that no longer exist and
