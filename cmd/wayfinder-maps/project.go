@@ -124,7 +124,15 @@ func loadRecents() []recentEntry {
 	var rs []recentEntry
 	json.Unmarshal(b, &rs)
 	var live []recentEntry
+	// Paths are cleaned on the way in (addRecent), but older files may carry
+	// both "/p/x" and "/p/x/" for one project — normalize and dedupe on read.
+	seen := map[string]bool{}
 	for _, r := range rs {
+		r.Path = filepath.Clean(r.Path)
+		if seen[r.Path] {
+			continue
+		}
+		seen[r.Path] = true
 		if fi, err := os.Stat(r.Path); err == nil && fi.IsDir() {
 			r.Maps = len(listMaps(r.Path))
 			live = append(live, r)
@@ -153,6 +161,9 @@ func addRecent(project string) {
 	if project == "" {
 		return
 	}
+	// Clean before comparing: the folder picker hands back trailing-slash
+	// paths, and "/p/x/" vs "/p/x" must not become two entries.
+	project = filepath.Clean(project)
 	out := []recentEntry{{Path: project, Name: filepath.Base(project), Maps: len(listMaps(project))}}
 	for _, r := range loadRecents() {
 		if r.Path != project {
@@ -168,6 +179,7 @@ func removeRecent(project string) {
 	if project == "" {
 		return
 	}
+	project = filepath.Clean(project)
 	out := []recentEntry{}
 	for _, r := range loadRecents() {
 		if r.Path != project {
