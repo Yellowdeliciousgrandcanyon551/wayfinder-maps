@@ -20,12 +20,24 @@ body.panelopen #hud{transform:translateY(105%);opacity:0;pointer-events:none}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #hud .spacer{flex:1 1 auto}
 #hud .counts{display:flex;gap:6px;flex-wrap:nowrap}
-#hud .c{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #262b36;color:#8b93a3;white-space:nowrap}
+/* .c is the pill/chip, shared by the HUD counts and the panel's meta row. */
+.c{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #262b36;color:#8b93a3;white-space:nowrap}
 .c.resolved{color:#b9c9e0;border-color:#42506a}
 .c.claimed{color:#e0a44b;border-color:#7a5a2a}
 .c.frontier{color:#ffd873;border-color:#8a6a20}
 .c.blocked{color:#c07a7a;border-color:#6a3b3b}
 .c.oos{color:#8a8496;border-color:#4a4550}
+.c.type{color:#9aa2b1;border-color:#3a4150}
+.c.undermined{color:#e06c75;border-color:#6a3b3b}
+/* Ticket-number links inside an edge chip ("blocked by", "blocks"), each
+   coloured by that ticket's own status so the holdup reads at a glance. */
+.c .tl{cursor:pointer;font-variant-numeric:tabular-nums}
+.c .tl:hover{text-decoration:underline}
+.tl.resolved{color:#b9c9e0}
+.tl.frontier{color:#ffd873}
+.tl.claimed{color:#e0a44b}
+.tl.blocked{color:#c07a7a}
+.tl.oos{color:#8a8496}
 #hud .bar{width:150px;flex:0 0 auto;height:6px;background:#20242e;border-radius:999px;overflow:hidden}
 #hud .bar>span{display:block;height:100%;background:linear-gradient(90deg,#6d86ad,#b9c9e0)}
 #hud .legend{display:flex;gap:12px;flex-wrap:nowrap;font-size:11px;color:#8b93a3}
