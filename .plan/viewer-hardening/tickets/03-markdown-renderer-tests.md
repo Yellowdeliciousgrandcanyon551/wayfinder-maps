@@ -1,6 +1,8 @@
 ---
 type: task
 blocked_by: []
+claimed_by: claude-code/fable-5
+claimed_at: 2026-07-12T19:09:25Z
 ---
 
 # Unit tests for the markdown renderer
