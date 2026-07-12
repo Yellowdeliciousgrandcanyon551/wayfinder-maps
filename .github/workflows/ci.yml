@@ -1,0 +1,52 @@
+# Push/PR guard. release.yml only fires on tags, so nothing here caught a
+# broken build — or, since the web/ refactor, a syntax error in an embedded JS
+# module, which no longer fails `go build` and would surface only at runtime in
+# the browser. This keeps it minimal: Go health plus an ESM syntax pass.
+#
+# CGO_ENABLED=0 on purpose: the real webview helper needs webkit2gtk headers
+# (release.yml installs them), but the pure-Go build tags compile without cgo,
+# which is all we need to vet/test the code and keep this runner dependency-free.
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # node --check on a .js file parses it as CommonJS and silently accepts
+      # broken `import`/`export`; feeding it over stdin with --input-type=module
+      # is what actually validates the modules as ESM.
+      - name: Syntax-check frontend modules
+        run: |
+          status=0
+          for f in cmd/wayfinder-maps/web/js/*.js; do
+            if node --check --input-type=module < "$f"; then
+              echo "ok   $f"
+            else
+              echo "FAIL $f"
+              status=1
+            fi
+          done
+          exit $status
