@@ -1,5 +1,7 @@
 # wayfinder-maps
 
+<img src="https://i.imgur.com/G2gleBR.png" alt="demo app: one wayfinder map at a moment">
+
 A read-only CLI and viewer for
 [wayfinder](https://github.com/mattpocock/skills/tree/main/skills/engineering/wayfinder)
 maps — the markdown planning memory an agent leaves under `.plan/<effort>/` as it charts
@@ -29,8 +31,6 @@ Undermined — resolved on a premise that later changed:
 
 Fog: 5 patches, 1 anchored to a ticket
 ```
-
-(Illustrative — a snapshot of one map at one moment.)
 
 ## Install
 
