@@ -1,0 +1,42 @@
+version: 2
+
+project_name: wayfinder
+
+# Two build flavours, one binary name. The native window (`wayfinder app`)
+# binds the system webview through cgo, which only the darwin builds carry;
+# linux/windows ship pure-Go, where `app` refers users to `serve`.
+builds:
+  - id: darwin
+    main: ./cmd/wayfinder
+    binary: wayfinder
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - arm64
+      - amd64
+  - id: portable
+    main: ./cmd/wayfinder
+    binary: wayfinder
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+    goarch:
+      - arm64
+      - amd64
+
+archives:
+  - name_template: "wayfinder_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github

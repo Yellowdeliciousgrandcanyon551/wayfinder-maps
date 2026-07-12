@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wayfinder/internal/wayfinder"
+	"github.com/rengwu/wayfinder-map/internal/wayfinder"
 )
 
 // serve runs the map viewer as a local web server, blocking until interrupted.

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"wayfinder/internal/wayfinder"
+	"github.com/rengwu/wayfinder-map/internal/wayfinder"
 )
 
 // mapInfo is a one-line summary of a wayfinder map, for the picker's card list.

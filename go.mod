@@ -1,4 +1,4 @@
-module wayfinder
+module github.com/rengwu/wayfinder-map
 
 go 1.26
 
