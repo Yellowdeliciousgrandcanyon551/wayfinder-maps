@@ -54,3 +54,16 @@ cd <scratch> && npm i playwright-core
 Flows worth driving: map render (all statuses + fog + edges), click star → panel
 markdown, `data-goto` cross-ticket link, Escape closes, wheel zoom (labels thin
 out), back button → splash/maplist.
+
+## WebKit
+
+`npx playwright-core install webkit` (~77MB, cached in ms-playwright) then
+`require("playwright-core").webkit.launch()` — no executablePath needed.
+Covered headlessly: full map render, the label-alpha fade workaround (capture a
+frame ~600ms into loadMap: labels must be dim WITH the stars, not opaque over
+them), touch tap via a hasTouch context, wheel zoom, panel markdown.
+
+NOT reachable headlessly — manual Safari checklist:
+- Trackpad pinch zooms the map, not the page (gesture* events; Playwright's
+  WebKit cannot construct GestureEvent, and Chromium never fires them).
+- Touch pan/pinch on a real iOS device or simulator.

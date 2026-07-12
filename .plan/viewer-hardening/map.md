@@ -25,6 +25,10 @@ which documents how to build, serve a fixture map, and drive the app headless.
 - [Warn when WAYFINDER_DEV points at nothing](./tickets/02-wayfinder-dev-missing-dir-warning.md) —
   startup stderr warning naming the resolved path when the dev dir lacks
   index.html; advisory, so serving proceeds and the embedded path stays silent.
+- [WebKit verification pass](./tickets/05-webkit-verification-pass.md) —
+  Playwright WebKit passes everything it can reach (render, label fade, touch
+  tap, wheel, markdown); trackpad pinch and real-iOS touch stay on a manual
+  Safari checklist in the verify skill.
 
 ## Not yet specified
 
