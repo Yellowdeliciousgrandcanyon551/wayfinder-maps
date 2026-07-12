@@ -1,6 +1,6 @@
-# wayfinder-maps
-
 <img src="https://i.imgur.com/G2gleBR.png" alt="demo app: one wayfinder map at a moment">
+
+# wayfinder-maps
 
 A read-only CLI and viewer for
 [wayfinder](https://github.com/mattpocock/skills/tree/main/skills/engineering/wayfinder)
