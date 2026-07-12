@@ -19,12 +19,12 @@ which documents how to build, serve a fixture map, and drive the app headless.
 
 <!-- one line per resolved ticket: gist + link -->
 
+- [Touch and trackpad input for the star-map](./tickets/01-touch-and-trackpad-input.md) —
+  one-finger pan, fat-finger tap, pinch (and Safari gesture events) all drive
+  the existing camera goal through a shared `zoomAt`; wheel behavior unchanged.
+
 ## Not yet specified
 
-- **A WebKit verification pass.** The renderer carries a WebKit-specific
-  label-alpha workaround but has only ever been verified in Chromium; whether
-  this wants Playwright WebKit in the loop or a manual Safari checklist is
-  unclear until touch/gesture work shows how far headless WebKit gets. clears-with: 01
 - **Whether the frontend's ES5-style JS modernizes.** The modules kept the old
   `var`-and-concatenation style verbatim through the refactor; module-by-module
   modernization is possible now, but it's not yet clear it's worth the churn.
