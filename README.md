@@ -61,7 +61,9 @@ in the project's `AGENTS.md` / `CLAUDE.md` saves retyping.
   Linux archive bundles a small helper that binds the system webkit —
   `libwebkit2gtk-4.1`, preinstalled on most desktops, one
   `sudo apt install libwebkit2gtk-4.1-0` otherwise. `status` and `lint` need nothing
-  installed at all, even headless.
+  installed at all, even headless. The macOS and Linux archives also carry
+  `wayfinder-maps-app` (`.command` on macOS) — double-click it to open the app window
+  without touching a terminal.
 - `go install github.com/rengwu/wayfinder-maps/cmd/wayfinder-maps@latest`
 
 Skill and binary are independent — each just reads the on-disk contract.
