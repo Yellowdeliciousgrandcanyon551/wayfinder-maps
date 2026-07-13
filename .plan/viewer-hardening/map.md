@@ -29,6 +29,11 @@ which documents how to build, serve a fixture map, and drive the app headless.
   Playwright WebKit passes everything it can reach (render, label fade, touch
   tap, wheel, markdown); trackpad pinch and real-iOS touch stay on a manual
   Safari checklist in the verify skill.
+- [Unit tests for the markdown renderer](./tickets/03-markdown-renderer-tests.md) —
+  25 zero-dependency `node --test` cases in `cmd/wayfinder-maps/webtests/`
+  (outside `web/`, so nothing lands in the embedded binary), run as the final
+  step of CI's frontend job; a `type: module` package.json scopes the modules
+  as ESM explicitly.
 - [CI guard for the embedded frontend](./tickets/04-ci-module-syntax-check.md) —
   `ci.yml` on push/PR runs `go build`/`vet`/`test` (CGO_ENABLED=0, so no
   webkit headers) plus an ESM syntax pass over `web/js/`; the modules go through

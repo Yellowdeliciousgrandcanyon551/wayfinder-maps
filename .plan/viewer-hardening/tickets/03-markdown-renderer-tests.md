@@ -1,8 +1,6 @@
 ---
 type: task
 blocked_by: []
-claimed_by: claude-code/fable-5
-claimed_at: 2026-07-12T19:09:25Z
 ---
 
 # Unit tests for the markdown renderer
@@ -21,3 +19,20 @@ inside them), ordered/unordered lists, blockquotes, hr, heading levels,
 external links vs `data-goto` ticket links, and the empty-body fallback.
 Decide where tests live and how they run (likely `node --test` invoked from
 CI once the [CI syntax check](04-ci-module-syntax-check.md) exists).
+
+## Answer
+
+`cmd/wayfinder-maps/webtests/markdown.test.mjs` — 25 tests, `node --test
+cmd/wayfinder-maps/webtests/*.test.mjs`, zero dependencies, now the final
+step of CI's `frontend` job (globbed explicitly: Node 22 won't take a bare
+directory as a `--test` target). Everything the ticket listed is covered, plus the renderer's
+sharper corners: bold wrapping a code span, `*` inside code staying
+unitalicised, seven hashes not being a heading, `***` reading as hr rather
+than emphasis, an unclosed fence still flushing, list type switching mid-list,
+and leading-zero ticket numbers collapsing in `data-goto`.
+
+Two placement decisions worth keeping: tests live *outside* `web/` because
+`//go:embed web` ships everything in that directory, and a two-line
+`package.json` (`type: module`) at `cmd/wayfinder-maps/` makes Node parse the
+imported `web/js/*.js` as ESM explicitly, instead of leaning on newer Node's
+syntax auto-detection.

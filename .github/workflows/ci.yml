@@ -50,3 +50,7 @@ jobs:
             fi
           done
           exit $status
+      # A bare directory isn't a valid --test target on Node 22 (it's loaded
+      # as a module and fails); glob the test files explicitly.
+      - name: Run frontend unit tests
+        run: node --test cmd/wayfinder-maps/webtests/*.test.mjs
