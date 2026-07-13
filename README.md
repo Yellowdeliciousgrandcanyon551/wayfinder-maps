@@ -50,8 +50,9 @@ Pocock in [mattpocock/skills](https://github.com/mattpocock/skills); the copies 
 ### Skills, drop-in for any harness
 
 Copy [`skills/`](skills/) into your project and tell your agent to read
-`skills/wayfinder-maps/SKILL.md` and follow it; the skills it names live alongside. A pointer
-in the project's `AGENTS.md` / `CLAUDE.md` saves retyping.
+`skills/wayfinder-maps/SKILL.md` and follow it; the skills it names live alongside.
+You may include any of the extras under [`skills/.optional/`](skills/.optional/) too —
+[`skills/README.md`](skills/README.md) describes the full set.
 
 ### The binary
 
