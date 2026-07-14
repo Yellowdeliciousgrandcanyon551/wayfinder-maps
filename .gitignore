@@ -1,5 +1,5 @@
 .gitignored
-.plan
+.plan/
 /wayfinder
 
 helpers/

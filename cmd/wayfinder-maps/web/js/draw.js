@@ -67,8 +67,9 @@ function drawEdge(e) {
   // Flow particles: on a SATISFIED edge, motes drift blocker->dependent, reading
   // as energy having unlocked the next step. Staggered phases, dim at the ends.
   if (e.satisfied) {
-    for (var k = 0; k < 3; k++) {
-      var u = mod(S.clock * 0.14 + k / 3 + (e.from * 0.13 + e.to * 0.07), 1);
+    var nm = 2;
+    for (var k = 0; k < nm; k++) {
+      var u = mod(S.clock * 0.10 + k / nm + (e.from * 0.13 + e.to * 0.07), 1);
       var m = 1 - u, fx = m * m * ax + 2 * m * u * cx + u * u * bx, fy = m * m * ay + 2 * m * u * cy + u * u * by;
       ctx.fillStyle = "rgba(190,225,200," + (0.16 + 0.44 * Math.sin(u * Math.PI)) + ")";
       ctx.beginPath(); ctx.arc(fx, fy, 1.7, 0, 6.2831853); ctx.fill();
@@ -98,19 +99,33 @@ function drawNode(n) {
   var c = col(n), x = n._x, y = n._y;
   var en = (n.enter != null) ? n.enter : 1; // 0..1 grow-in for a newly-added ticket
   var fl = n.flare || 0;                    // 1..0 burst on a status change
-  // Frontier stars breathe: glow and ring pulse gently so the eye is drawn to
-  // what is takeable now.
+  // Frontier stars breathe: their glow pulses gently so the eye is drawn to what
+  // is takeable now. Claimed stars carry orbital rings instead — someone is
+  // already circling them.
   var isF = n.status === "frontier";
+  var isC = n.status === "claimed";
   var beat = 0.5 + 0.5 * Math.sin(S.clock * 2.8);
   var pulse = isF ? (0.8 + 0.2 * beat) : 1;
   var gr = (isF ? c.gr * (0.92 + 0.16 * beat) : c.gr) * (0.55 + 0.45 * en) * (1 + fl * 0.5);
   var g = ctx.createRadialGradient(x, y, 0, x, y, gr);
   g.addColorStop(0, hexA(c.glow, Math.min(1, (0.85 * pulse + fl * 0.5) * en))); g.addColorStop(0.4, hexA(c.glow, 0.22 * pulse * en)); g.addColorStop(1, hexA(c.glow, 0));
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, 6.2831853); ctx.fill();
-  ctx.fillStyle = c.core; ctx.beginPath(); ctx.arc(x, y, c.r * (0.4 + 0.6 * en), 0, 6.2831853); ctx.fill();
+  // Core: solid to ~0.6 of its radius, then feathered to nothing over the outer
+  // 40%. A hard-edged disc reads as a flat sticker against the near-black sky;
+  // letting the rim fall off makes the star look lit from within.
+  var cr = c.r * (0.4 + 0.6 * en);
+  var cg = ctx.createRadialGradient(x, y, 0, x, y, cr * 1.35);
+  cg.addColorStop(0, hexA(c.core, 1)); cg.addColorStop(0.6, hexA(c.core, 0.92));
+  cg.addColorStop(0.82, hexA(c.core, 0.45)); cg.addColorStop(1, hexA(c.core, 0));
+  ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, y, cr * 1.35, 0, 6.2831853); ctx.fill();
   // Flare: an expanding ring pulse marking a just-changed status.
   if (fl > 0) { ctx.strokeStyle = hexA(c.core, fl * 0.7); ctx.lineWidth = 1.5 + 2 * fl; ctx.beginPath(); ctx.arc(x, y, c.r + (1 - fl) * 40, 0, 6.2831853); ctx.stroke(); }
-  if (isF) { ctx.strokeStyle = hexA("#ffd873", 0.4 + 0.3 * beat); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, c.r + 6 + 1.5 * beat, 0, 6.2831853); ctx.stroke(); }
+  if (isC) {
+    ctx.strokeStyle = hexA(c.core, 0.45 + 0.25 * beat); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, c.r + 5 + 1.2 * beat, 0, 6.2831853); ctx.stroke();
+    ctx.strokeStyle = hexA(c.core, 0.18 + 0.14 * beat); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y, c.r + 11 + 1.8 * beat, 0, 6.2831853); ctx.stroke();
+  }
   // Undermined: a red cracked halo — an uneven dashed ring, its gaps travelling,
   // marking a decision resting on a premise a later ticket destroyed.
   if (n.undermined) {

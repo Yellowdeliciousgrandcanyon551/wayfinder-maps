@@ -1,4 +1,4 @@
-<img src="https://i.imgur.com/G2gleBR.png" alt="demo app: one wayfinder map at a moment">
+<img src="https://i.imgur.com/jv8Bhu0.png" alt="demo app: one wayfinder map at a moment">
 
 # wayfinder-maps
 
